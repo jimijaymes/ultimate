@@ -27,32 +27,99 @@ UltimateEditor::UltimateEditor(UltimateProcessor& p):AudioProcessorEditor(p),pro
  struct Switch {const char* id;const char* title;};
  const Switch switches[]={{"preOn","PREAMP ON"},{"eqOn","EQ ON"},{"dynOn","DYNAMICS ON"},{"tapeOn","TAPE / OUTPUT ON"},{"optoOn","OPTO ON"},{"fetOn","FET ON"},{"fetFirst","FET FIRST"}};
  for(const auto& def:switches){auto k=std::make_unique<Toggle>();k->button.setButtonText(def.title);k->button.setColour(juce::ToggleButton::textColourId,ink);addAndMakeVisible(k->button);k->attachment=std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(p.parameters,def.id,k->button);toggles.push_back(std::move(k));}
- setSize(1260,1190);
+ const juce::StringArray tabNames{"PREAMP","EQUALISER","DYNAMICS","TAPE / OUTPUT","MASTER"};
+ for(int i=0;i<5;++i){
+  tabs[(size_t)i].setButtonText(tabNames[i]);
+  tabs[(size_t)i].setClickingTogglesState(false);
+  tabs[(size_t)i].onClick=[this,i]{activeTab=i;updateTab();};
+  addAndMakeVisible(tabs[(size_t)i]);
+ }
+ choices[2]->combo.onChange=[this]{updateEqModel();};
+ setSize(1120,570);
+ updateTab();
+}
+void UltimateEditor::updateEqModel(){
+ const bool api=choices[2]->combo.getSelectedItemIndex()==2;
+ for(int i=4;i<=12;++i){dials[(size_t)i]->slider.setVisible(activeTab==1&&!api);dials[(size_t)i]->label.setVisible(activeTab==1&&!api);}
+ for(int i=25;i<=34;++i){dials[(size_t)i]->slider.setVisible(activeTab==1&&api);dials[(size_t)i]->label.setVisible(activeTab==1&&api);}
+ repaint();
+}
+void UltimateEditor::updateTab(){
+ for(int i=0;i<5;++i)tabs[(size_t)i].setColour(juce::TextButton::buttonColourId,i==activeTab?gold:panel);
+ const auto visibleDial=[this](int i,bool visible){dials[(size_t)i]->slider.setVisible(visible);dials[(size_t)i]->label.setVisible(visible);};
+ const auto visibleChoice=[this](int i,bool visible){choices[(size_t)i]->combo.setVisible(visible);choices[(size_t)i]->label.setVisible(visible);};
+ for(int i=0;i<(int)dials.size();++i)visibleDial(i,
+  activeTab==0?i<4:activeTab==1?(i>=4&&i<=12||i>=25):activeTab==2?(i>=13&&i<=18):activeTab==3?(i==19||i==20):(i>=21&&i<=24));
+ for(int i=0;i<(int)choices.size();++i)visibleChoice(i,
+  activeTab==0?i<=1:activeTab==1?i==2:activeTab==2?(i>=3&&i<=7):activeTab==3?(i==8||i==9):i==10);
+ for(int i=0;i<(int)toggles.size();++i)toggles[(size_t)i]->button.setVisible(
+  activeTab==0?i==0:activeTab==1?i==1:activeTab==2?(i==2||i>=4):activeTab==3?i==3:false);
+ updateEqModel();
+ resized();
+ repaint();
 }
 void UltimateEditor::paint(juce::Graphics& g){
- g.fillAll(bg);g.setColour(ink);g.setFont(juce::Font(juce::FontOptions(33.f,juce::Font::bold)));g.drawText("ULTIMATE  /  CHANNEL STRIP",26,14,1000,46,juce::Justification::centredLeft);
- const char* headings[]={"01  PREAMP / TRANSFORMER & CIRCUIT","02  THREE-MODEL EQUALISER","03  OPTO / FET DYNAMICS","04  TAPE & OUTPUT TRANSFORMER","MASTER  /  ROUTING & LEVEL"};
- const int tops[]={76,255,640,856,1025},heights[]={169,375,206,159,150};
- for(int i=0;i<5;++i){g.setColour(panel);g.fillRoundedRectangle(18.f,(float)tops[i],1224.f,(float)heights[i],10.f);g.setColour(i==4?blue:gold);g.drawRoundedRectangle(18.f,(float)tops[i],1224.f,(float)heights[i],10.f,1.2f);g.setFont(juce::Font(juce::FontOptions(15.f,juce::Font::bold)));g.drawText(headings[i],35,tops[i]+8,800,23,juce::Justification::centredLeft);}
- g.setColour(ink);g.setFont(juce::Font(juce::FontOptions(12.f)));g.drawText("API 560: 10 graphic bands below. Neve / SSL: four bands above.",34,604,900,22,juce::Justification::centredLeft);
+ g.fillAll(bg);g.setColour(ink);
+ g.setFont(juce::Font(juce::FontOptions(29.f,juce::Font::bold)));
+ g.drawText("ULTIMATE / CHANNEL STRIP",25,14,1000,40,juce::Justification::centredLeft);
+ g.setColour(panel);g.fillRoundedRectangle(18.f,120.f,1084.f,432.f,12.f);
+ const char* headings[]={"INPUT TRANSFORMER / PREAMP","EQUALISER","OPTO + FET DYNAMICS","TAPE + OUTPUT TRANSFORMER","MASTER / ROUTING"};
+ g.setColour(gold);g.setFont(juce::Font(juce::FontOptions(18.f,juce::Font::bold)));
+ g.drawText(headings[activeTab],38,134,800,28,juce::Justification::centredLeft);
+ if(activeTab==1&&choices[2]->combo.getSelectedItemIndex()==2){
+  g.setColour(blue);g.setFont(13.f);
+  g.drawText("API 560 / GRAPHIC EQ  -  10 BANDS",40,255,700,22,juce::Justification::centredLeft);
+ }
 }
 void UltimateEditor::resized(){
- auto dial=[&](int i,int x,int y){auto& k=*dials[(size_t)i];k.slider.setBounds(x,y,95,85);k.label.setBounds(x-13,y+83,121,20);};
- for(int i=0;i<4;++i)dial(i,38+i*113,117);
- for(int i=4;i<=12;++i)dial(i,36+(i-4)*130,303);
- for(int i=13;i<=18;++i)dial(i,36+(i-13)*135,685);
- for(int i=19;i<=20;++i)dial(i,38+(i-19)*145,899);
- for(int i=21;i<=24;++i)dial(i,36+(i-21)*140,1063);
- for(int i=25;i<=34;++i)dial(i,36+(i-25)*119,489);
- auto choice=[&](int i,int x,int y,int w){auto& k=*choices[(size_t)i];k.label.setBounds(x,y,w,20);k.combo.setBounds(x,y+21,w,28);};
- choice(0,550,120,300);choice(1,870,120,300);choice(2,850,268,320);
- for(int i=3;i<=7;++i)choice(i,840,664+(i-3)*38,320);
- choice(8,345,886,390);choice(9,770,886,390);choice(10,660,1060,270);
- toggles[0]->button.setBounds(1050,80,170,30);
- toggles[1]->button.setBounds(1050,257,150,30);
- toggles[2]->button.setBounds(1050,641,160,30);
- toggles[3]->button.setBounds(1050,857,180,30);
- toggles[4]->button.setBounds(36,795,130,28);
- toggles[5]->button.setBounds(190,795,130,28);
- toggles[6]->button.setBounds(345,795,160,28);
+ for(int i=0;i<5;++i)tabs[(size_t)i].setBounds(20+i*219,70,210,38);
+ auto dial=[&](int i,int x,int y,int w=118,int h=128){
+  auto& k=*dials[(size_t)i];
+  k.label.setBounds(x,y,w,23);
+  k.slider.setBounds(x,y+25,w,h-25);
+ };
+ auto choice=[&](int i,int x,int y,int w){
+  auto& k=*choices[(size_t)i];k.label.setBounds(x,y,w,22);
+  k.combo.setBounds(x,y+26,w,32);
+ };
+ if(activeTab==0){
+  for(int i=0;i<4;++i)dial(i,40+i*145,245);
+  choice(0,40,178,470);choice(1,535,178,470);
+  toggles[0]->button.setBounds(830,137,170,30);
+ }else if(activeTab==1){
+  choice(2,40,177,440);
+  toggles[1]->button.setBounds(850,140,160,30);
+  const bool api=choices[2]->combo.getSelectedItemIndex()==2;
+  if(api){
+   for(int i=25;i<=34;++i){
+    auto& k=*dials[(size_t)i];const int x=42+(i-25)*104;
+    k.label.setBounds(x,301,90,22);
+    k.slider.setSliderStyle(juce::Slider::LinearVertical);
+    k.slider.setTextBoxStyle(juce::Slider::TextBoxBelow,false,88,21);
+    k.slider.setBounds(x+8,326,76,181);
+   }
+  }else{
+   for(int i=4;i<=12;++i){
+    auto& k=*dials[(size_t)i];
+    k.slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    k.slider.setTextBoxStyle(juce::Slider::TextBoxBelow,false,76,20);
+    dial(i,43+((i-4)%5)*205,270+((i-4)/5)*130,158,120);
+   }
+  }
+ }else if(activeTab==2){
+  for(int i=13;i<=18;++i)dial(i,38+(i-13)*171,246,150,135);
+  choice(3,40,176,180);choice(4,239,176,180);choice(5,438,176,180);
+  choice(6,637,176,180);choice(7,836,176,180);
+  toggles[2]->button.setBounds(40,425,160,28);
+  toggles[4]->button.setBounds(218,425,135,28);
+  toggles[5]->button.setBounds(370,425,135,28);
+  toggles[6]->button.setBounds(523,425,150,28);
+ }else if(activeTab==3){
+  choice(8,40,186,490);choice(9,550,186,490);
+  dial(19,42,290,165,150);dial(20,255,290,175,150);
+  toggles[3]->button.setBounds(835,140,180,30);
+ }else{
+  for(int i=21;i<=24;++i)dial(i,45+i%21*195,270,160,145);
+  choice(10,40,184,390);
+ }
 }
