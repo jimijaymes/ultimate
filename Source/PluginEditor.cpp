@@ -75,12 +75,12 @@ void UltimateEditor::resized(){
  for(int i=0;i<5;++i)tabs[(size_t)i].setBounds(20+i*219,70,210,38);
  auto dial=[&](int i,int x,int y,int w=118,int h=128){
   auto& k=*dials[(size_t)i];
-  k.label.setBounds(x,y,w,23);
+  k.label.setBounds(x,y,w,23);k.label.setMinimumHorizontalScale(.8f);
   k.slider.setBounds(x,y+25,w,h-25);
  };
  auto choice=[&](int i,int x,int y,int w){
   auto& k=*choices[(size_t)i];k.label.setBounds(x,y,w,22);
-  k.combo.setBounds(x,y+26,w,32);
+  k.combo.setBounds(x,y+26,w,32);k.label.setMinimumHorizontalScale(.8f);
  };
  if(activeTab==0){
   for(int i=0;i<4;++i)dial(i,40+i*145,245);
